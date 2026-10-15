@@ -269,6 +269,14 @@ class RootTrackStatesWriter final : public WriterT<ConstTrackContainer> {
   std::array<std::vector<float>, eSize> m_eta;
   /// predicted/filtered/smoothed/unbiased parameter pT
   std::array<std::vector<float>, eSize> m_pT;
+
+
+  //Adding readout for the candidates at each surface with their booleans
+  //indicating rejection, outlier, or passed
+  std::vector<bool>m_all_cand_passing;
+  std::vector<bool>m_all_cand_outlier;
+  std::vector<bool>m_all_cand_failed;
+  std::vector<double>m_all_cand_chi2;
 };
 
 }  // namespace ActsExamples

@@ -88,6 +88,9 @@ class TrackFindingAlgorithm final : public IAlgorithm {
     /// Output find trajectories collection.
     std::string outputTracks;
 
+    ///Input clusters collection
+    std::string inputClusters;
+
     /// The tracking geometry that should be used.
     std::shared_ptr<const Acts::TrackingGeometry> trackingGeometry;
     /// The magnetic field that should be used.
@@ -178,6 +181,9 @@ class TrackFindingAlgorithm final : public IAlgorithm {
   ReadDataHandle<TrackParametersContainer> m_inputInitialTrackParameters{
       this, "InputInitialTrackParameters"};
   ReadDataHandle<SeedContainer> m_inputSeeds{this, "InputSeeds"};
+  
+  //Reading the cluster collection
+  ReadDataHandle<ClusterContainer> m_inputClusters{this, "clusters"};
 
   WriteDataHandle<ConstTrackContainer> m_outputTracks{this, "OutputTracks"};
 
@@ -197,5 +203,27 @@ class TrackFindingAlgorithm final : public IAlgorithm {
         return mtj->statistics();
       }};
 };
+
+//Add a struct for storing all candidates and their status 
+struct candidate_properties
+  {
+    std::vector<int> hit_idx;
+    std::vector<double> chi2;
+    std::vector<bool> selected_cand;
+    std::vector<bool> outlier_cand;
+    std::vector<bool> rejected_cand;
+    std::vector<double> charge_dep;
+    std::vector<double> cluster_size;
+
+    void clear() {
+      hit_idx.clear();
+      chi2.clear();
+      selected_cand.clear();
+      outlier_cand.clear();
+      rejected_cand.clear();
+      charge_dep.clear();
+      cluster_size.clear();
+    }
+  };
 
 }  // namespace ActsExamples

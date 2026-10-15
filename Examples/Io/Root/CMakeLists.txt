@@ -48,6 +48,7 @@ target_link_libraries(
         Acts::ExamplesPropagation
         Acts::ExamplesTruthTracking
         Acts::ExamplesMaterialMapping
+        Acts::ExamplesTrackFinding
         Threads::Threads
     PRIVATE ROOT::Core ROOT::Hist ROOT::Tree ROOT::TreePlayer
 )

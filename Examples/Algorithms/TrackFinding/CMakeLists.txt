@@ -21,7 +21,9 @@ target_include_directories(
 
 target_link_libraries(
     ActsExamplesTrackFinding
-    PUBLIC Acts::ExamplesMagneticField
+    PUBLIC 
+    Acts::ExamplesMagneticField
+    Acts::Core
     PRIVATE Acts::PluginJson
 )
 

@@ -6,6 +6,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//This include has been modified to include a struct for 
+//storing candidate hits on surfaces along the track 
+//trajectory
 #include "ActsExamples/TrackFinding/TrackFindingAlgorithm.hpp"
 
 #include "Acts/Definitions/Algebra.hpp"
@@ -58,8 +61,15 @@ class MeasurementSelector {
  public:
   using Traj = Acts::VectorMultiTrajectory;
 
-  explicit MeasurementSelector(Acts::MeasurementSelector selector)
-      : m_selector(std::move(selector)) {}
+  explicit MeasurementSelector(Acts::MeasurementSelector selector, const TrackFindingAlgorithm::Config& config)
+      : m_selector(std::move(selector)), m_cfg(&config) {}
+
+  mutable ActsExamples::candidate_properties cand_props;
+
+  void setEventData(const MeasurementSubset* measurements, const ClusterContainer* clusters){
+    m_measurements = measurements;
+    m_clusters = clusters;
+  }
 
   /// Resolve the seed to measurement indices once, so the per candidate check
   /// does not have to walk space points and unpack source links.
@@ -89,14 +99,75 @@ class MeasurementSelector {
       }
     }
 
-    return m_selector.select<Acts::VectorMultiTrajectory>(candidates, isOutlier,
-                                                          logger);
+    //Collect the candidates passing the Chi2 cuts
+    auto passing_candidates =  m_selector.select<Acts::VectorMultiTrajectory>(candidates, isOutlier, logger);
+
+    if (passing_candidates.ok()){
+        //Collect all passing candidates 
+        auto[passing_begin, passing_end] = passing_candidates.value();
+        //Loop through ALL candidates
+        for (auto it = candidates.begin(); it != candidates.end(); it++){
+          //Boolean for candidates which did or did not pass
+          bool potentially_passing_cand = (it >= candidates.begin())&&(it < passing_end);
+          bool selected_cand = false;
+          bool outlier_cand = false;
+          bool rejected_cand = false;
+
+          if (it >= passing_end){
+            rejected_cand = true;
+          }
+          else if (it <= passing_begin){
+            selected_cand = true;
+          }
+          else{
+            outlier_cand = true;
+          }
+
+          int hit_id = -999;
+          if (it->hasUncalibratedSourceLink()){
+            const Acts::SourceLink& source_link = it->getUncalibratedSourceLink();
+            if (const auto* index_link = source_link.getPtr<ActsExamples::IndexSourceLink>()){
+              hit_id = index_link->index();
+            }
+
+          }
+          //Retrieve Chi2
+          double chi2 = it->chi2();
+          //Append the hit bools/features to a container
+          cand_props.hit_idx.push_back(hit_id);
+          cand_props.chi2.push_back(chi2);
+          cand_props.selected_cand.push_back(selected_cand);
+          cand_props.outlier_cand.push_back(outlier_cand);
+          cand_props.rejected_cand.push_back(rejected_cand);
+        }
+    }
+
+    //Handle the case of missing candidates so that the track
+    //structure can be aligned by counting surfaces
+    if (!passing_candidates.ok() || candidates.empty()){
+      cand_props.hit_idx.push_back(-999);
+      cand_props.chi2.push_back(-999);
+      cand_props.selected_cand.push_back(false);
+      cand_props.outlier_cand.push_back(false);
+      cand_props.rejected_cand.push_back(false);
+    }
+
+    //Pass the candidates as normal
+    return passing_candidates;
+
   }
 
  private:
   Acts::MeasurementSelector m_selector;
   /// measurement indices of the current seed, at most a handful
   std::vector<Index> m_seedIndices;
+
+  //Pointers to the config for input names, 
+  //clusters, and measurements
+  const TrackFindingAlgorithm::Config* m_cfg{nullptr};
+  const MeasurementSubset* m_measurements{nullptr};
+  const ClusterContainer* m_clusters{nullptr};
+
 
   bool isSeedCandidate(const Traj::TrackStateProxy& candidate) const {
     assert(candidate.hasUncalibratedSourceLink());
@@ -304,6 +375,8 @@ TrackFindingAlgorithm::TrackFindingAlgorithm(
   m_inputInitialTrackParameters.initialize(m_cfg.inputInitialTrackParameters);
   m_inputSeeds.maybeInitialize(m_cfg.inputSeeds);
   m_outputTracks.initialize(m_cfg.outputTracks);
+  //Clusters
+  m_inputClusters.initialize(m_cfg.inputClusters);
 }
 
 ProcessCode TrackFindingAlgorithm::execute(const AlgorithmContext& ctx) const {
@@ -311,6 +384,7 @@ ProcessCode TrackFindingAlgorithm::execute(const AlgorithmContext& ctx) const {
   const auto& measurements = m_inputMeasurements(ctx);
   const auto& initialParameters = m_inputInitialTrackParameters(ctx);
   const SeedContainer* seeds = nullptr;
+  const auto& clusters = m_inputClusters(ctx);
 
   if (m_inputSeeds.isInitialized()) {
     seeds = &m_inputSeeds(ctx);
@@ -334,7 +408,10 @@ ProcessCode TrackFindingAlgorithm::execute(const AlgorithmContext& ctx) const {
 
   BranchStopper branchStopper(m_cfg);
   MeasurementSelector measSel{
-      Acts::MeasurementSelector(m_cfg.measurementSelectorCfg)};
+      Acts::MeasurementSelector(m_cfg.measurementSelectorCfg),
+    m_cfg};
+
+  measSel.setEventData(&measurements, &clusters);
 
   IndexSourceLinkAccessor slAccessor;
   slAccessor.container = &measurements.orderedIndices();
@@ -416,8 +493,7 @@ ProcessCode TrackFindingAlgorithm::execute(const AlgorithmContext& ctx) const {
   auto trackStateContainer = std::make_shared<Acts::VectorMultiTrajectory>();
 
   auto trackContainerTemp = std::make_shared<Acts::VectorTrackContainer>();
-  auto trackStateContainerTemp =
-      std::make_shared<Acts::VectorMultiTrajectory>();
+  auto trackStateContainerTemp = std::make_shared<Acts::VectorMultiTrajectory>();
 
   TrackContainer tracks(trackContainer, trackStateContainer);
   TrackContainer tracksTemp(trackContainerTemp, trackStateContainerTemp);
@@ -430,12 +506,19 @@ ProcessCode TrackFindingAlgorithm::execute(const AlgorithmContext& ctx) const {
   tracksTemp.addColumn<unsigned int>("trackGroup");
   Acts::ProxyAccessor<unsigned int> seedNumber("trackGroup");
 
+  //Add all canddiates to the track whiteboard
+  tracks.addColumn<ActsExamples::candidate_properties>("allCandidates");
+  tracksTemp.addColumn<ActsExamples::candidate_properties>("allCandidates");
+  //Post the track candidate properties to the whiteboard with a proxy name
+  Acts::ProxyAccessor<ActsExamples::candidate_properties> candidate_accumulator ("allCandidates");
+
+
   unsigned int nSeed = 0;
 
   // A map indicating whether a seed has been discovered already
   SeedCoverage seedCoverage;
 
-  auto addTrack = [&](const TrackProxy& track) {
+  auto addTrack = [&](const TrackProxy& track, const ActsExamples::candidate_properties& props) {
     ++m_nFoundTracks;
 
     // trim the track if requested
@@ -456,6 +539,10 @@ ProcessCode TrackFindingAlgorithm::execute(const AlgorithmContext& ctx) const {
     auto destProxy = tracks.makeTrack();
     // make sure we copy track states!
     destProxy.copyFrom(track);
+
+    //Reference to the properties buffer and 
+    //creates a copy
+    candidate_accumulator(destProxy) = props;
   };
 
   if (seeds != nullptr && m_cfg.seedDeduplication) {
@@ -465,6 +552,9 @@ ProcessCode TrackFindingAlgorithm::execute(const AlgorithmContext& ctx) const {
 
   for (std::size_t iSeed = 0; iSeed < initialParameters.size(); ++iSeed) {
     m_nTotalSeeds++;
+
+    //Clear the candidates from the previous seeds
+    measSel.cand_props.clear();
 
     if (seeds != nullptr) {
       const ConstSeedProxy seed = seeds->at(iSeed);
@@ -645,7 +735,7 @@ ProcessCode TrackFindingAlgorithm::execute(const AlgorithmContext& ctx) const {
                 }
               }
 
-              addTrack(trackCandidate);
+              addTrack(trackCandidate, measSel.cand_props);
 
               ++nSecond;
             }
@@ -678,7 +768,7 @@ ProcessCode TrackFindingAlgorithm::execute(const AlgorithmContext& ctx) const {
           continue;
         }
 
-        addTrack(trackCandidate);
+        addTrack(trackCandidate, measSel.cand_props);
       }
     }
   }

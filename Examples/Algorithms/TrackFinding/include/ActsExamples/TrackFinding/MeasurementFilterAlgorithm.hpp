@@ -71,4 +71,5 @@ class MeasurementFilterAlgorithm final : public IAlgorithm {
       this, "OutputMeasurementSubset"};
 };
 
+
 }  // namespace ActsExamples

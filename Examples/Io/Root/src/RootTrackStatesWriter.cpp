@@ -27,6 +27,11 @@
 #include "ActsExamples/Utilities/Range.hpp"
 #include "ActsFatras/EventData/Barcode.hpp"
 
+//Custom Acts includes for all candidate readout
+#include "Acts/EventData/ProxyAccessor.hpp"
+#include "ActsExamples/TrackFinding/TrackFindingAlgorithm.hpp"
+
+
 #include <cmath>
 #include <ios>
 #include <limits>
@@ -91,6 +96,14 @@ RootTrackStatesWriter::RootTrackStatesWriter(
   // I/O parameters
   m_outputTree->Branch("event_nr", &m_eventNr);
   m_outputTree->Branch("track_nr", &m_trackNr);
+
+  //Custom writeout of the candidates at each 
+  //surface in the track trajectory
+  m_outputTree->Branch("isCand_passing", &m_all_cand_passing);
+  m_outputTree->Branch("isCand_outlier", &m_all_cand_outlier);
+  m_outputTree->Branch("isCand_failure", &m_all_cand_failed);
+  m_outputTree->Branch("all_cand_chi2", &m_all_cand_chi2);
+
 
   m_outputTree->Branch("nStates", &m_nStates);
   m_outputTree->Branch("nMeasurements", &m_nMeasurements);
@@ -311,6 +324,12 @@ ProcessCode RootTrackStatesWriter::writeT(const AlgorithmContext& ctx,
                                           const ConstTrackContainer& tracks) {
   constexpr float nan = std::numeric_limits<float>::quiet_NaN();
 
+  //Instantiate the Proxy Accessor 
+  //What is a Proxy Accessor? 
+  //Answer: The proxy accessor computes a memory map offset for the
+  //type accessed by the accessor key with name key(name)
+  Acts::ConstProxyAccessor<ActsExamples::candidate_properties> candidate_accumulator("allCandidates");
+
   // Track states and measurements live in the reco geometry, the truth hits
   // below in the sim one
   const Acts::GeometryContext& gctx = ctx.recoGeoContext;
@@ -332,6 +351,14 @@ ProcessCode RootTrackStatesWriter::writeT(const AlgorithmContext& ctx,
     // Collect the track summary info
     m_nMeasurements = track.nMeasurements();
     m_nStates = track.nTrackStates();
+
+    //Retrieve the set of candidates at 
+    //each surface in the track trajectory
+    const ActsExamples::candidate_properties& all_cands = candidate_accumulator(track);
+    m_all_cand_passing = all_cands.selected_cand;
+    m_all_cand_outlier = all_cands.outlier_cand;
+    m_all_cand_failed = all_cands.rejected_cand;
+    m_all_cand_chi2 = all_cands.chi2;
 
     // Get the majority truth particle to this track
     int truthQ = 1;
@@ -744,6 +771,14 @@ ProcessCode RootTrackStatesWriter::writeT(const AlgorithmContext& ctx,
     m_volumeID.clear();
     m_layerID.clear();
     m_moduleID.clear();
+
+    //Start of custom branches
+    m_all_cand_passing.clear();
+    m_all_cand_outlier.clear();
+    m_all_cand_failed.clear();
+    m_all_cand_chi2.clear();
+
+    //End of custom branches
 
     m_stateType.clear();
 
