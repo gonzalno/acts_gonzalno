@@ -25,6 +25,9 @@
 #include "ActsExamples/Framework/IAlgorithm.hpp"
 #include "ActsExamples/Framework/ProcessCode.hpp"
 
+//Cluster container
+#include "ActsExamples/EventData/Cluster.hpp"
+
 #include <atomic>
 #include <cstddef>
 #include <limits>
@@ -89,7 +92,7 @@ class TrackFindingAlgorithm final : public IAlgorithm {
     std::string outputTracks;
 
     ///Input clusters collection
-    std::string inputClusters;
+    std::string inputClusters = "clusters";
 
     /// The tracking geometry that should be used.
     std::shared_ptr<const Acts::TrackingGeometry> trackingGeometry;
@@ -209,13 +212,20 @@ struct candidate_properties
   {
     std::vector<int> hit_idx;
     std::vector<double> chi2;
-    std::vector<bool> selected_cand;
-    std::vector<bool> outlier_cand;
-    std::vector<bool> rejected_cand;
+    std::vector<int> selected_cand;
+    std::vector<int> outlier_cand;
+    std::vector<int> rejected_cand;
     std::vector<double> charge_dep;
     std::vector<double> cluster_size;
+    std::vector<int> nchannels;
+    std::vector<size_t> sizeLoc0;
+    std::vector<size_t> sizeLoc1;
+    std::vector<double> globalEta;
+    std::vector<double> globalPhi;
+    std::vector<double> incidentEta;
+    std::vector<double> incidentPhi;
 
-    void clear() {
+    void clear(){
       hit_idx.clear();
       chi2.clear();
       selected_cand.clear();
@@ -223,6 +233,13 @@ struct candidate_properties
       rejected_cand.clear();
       charge_dep.clear();
       cluster_size.clear();
+      nchannels.clear();
+      sizeLoc0.clear();
+      sizeLoc1.clear();
+      globalEta.clear();
+      globalPhi.clear();
+      incidentEta.clear();
+      incidentPhi.clear();
     }
   };
 

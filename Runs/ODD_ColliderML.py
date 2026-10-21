@@ -67,11 +67,14 @@ print(geoDir, actsDir)
 
 #Creating file pointers to the necessary detector configs
 oddMaterialMap = ( geoDir / "data/odd-material-maps.root" )
-oddDigiConfig = ( actsDir / "Examples/Configs/odd-digi-smearing-config.json" )
+oddDigiConfig = ( actsDir / "Examples/Configs/odd-digi-geometric-config.json" )
 oddGbtsLayerMap = ( actsDir / "Examples/Configs/odd-gbts-layer-map.json" )
-oddGbtsConnectionTable = ( actsDir / "Examples/Configs/odd-gbts-connection-table.json" )
+oddGbtsConnectionTable = (actsDir / "Examples/Configs/odd-gbts-connection-table.json" )
 oddSeedingSel = ( actsDir / "Examples/Configs/odd-seeding-config.json" )
 oddMaterialDeco = acts.IMaterialDecorator.fromFile(oddMaterialMap)
+
+if not oddDigiConfig.exists():
+    raise FileNotFoundError(f"Digitization config file does not exist at: {oddDigiConfig}")
 
 #The detector is the geometry plus the material, combine them
 detector = getOpenDataDetector(odd_dir=geoDir, materialDecorator=oddMaterialDeco)
@@ -82,6 +85,9 @@ rnd = acts.examples.RandomNumbers(seed=42)
 #Build the sequencer used to prcoess the events
 seq = acts.examples.Sequencer( events = NEVENTS, numThreads = 1,
                                 outputDir = OUT_PATH )
+
+for decorator in decorators:
+    seq.addContextDecorator(decorator)
 
 
 seq.addReader( PodioReader(level=acts.logging.DEBUG, inputPath=INPUT_PATH, outputFrame="events", category="events") )
@@ -118,7 +124,7 @@ addSimParticleSelection(seq,
 
 
 addDigitization(seq, trackingGeometry, B_Z, digiConfigFile=oddDigiConfig, 
-                outputDirRoot=OUT_PATH, outputDirCsv=OUT_PATH, rnd=rnd)
+                outputDirRoot=OUT_PATH, outputDirCsv=OUT_PATH, rnd=rnd, logLevel=acts.logging.DEBUG)
 
 addDigiParticleSelection(seq, 
                 ParticleSelectorConfig(pt=(1.0 * u.GeV, None), eta=(-3.0, 3.0), measurements=(9, None), removeNeutral=True))

@@ -62,10 +62,12 @@ class MeasurementSelector {
   using Traj = Acts::VectorMultiTrajectory;
 
   explicit MeasurementSelector(Acts::MeasurementSelector selector, const TrackFindingAlgorithm::Config& config)
-      : m_selector(std::move(selector)), m_cfg(&config) {}
+      : m_candidate_accumulator("allCandidates"), m_selector(std::move(selector)), m_cfg(&config) {}
 
   mutable ActsExamples::candidate_properties cand_props;
+  Acts::ProxyAccessor<ActsExamples::candidate_properties> m_candidate_accumulator;
 
+  //Set the event data as attributes we can access on calls to MeasurementSelector
   void setEventData(const MeasurementSubset* measurements, const ClusterContainer* clusters){
     m_measurements = measurements;
     m_clusters = clusters;
@@ -99,8 +101,9 @@ class MeasurementSelector {
       }
     }
 
-    //Collect the candidates passing the Chi2 cuts
+    //Collect the candidates and clear the struct
     auto passing_candidates =  m_selector.select<Acts::VectorMultiTrajectory>(candidates, isOutlier, logger);
+    cand_props.clear();
 
     if (passing_candidates.ok()){
         //Collect all passing candidates 
@@ -108,26 +111,72 @@ class MeasurementSelector {
         //Loop through ALL candidates
         for (auto it = candidates.begin(); it != candidates.end(); it++){
           //Boolean for candidates which did or did not pass
-          bool potentially_passing_cand = (it >= candidates.begin())&&(it < passing_end);
-          bool selected_cand = false;
-          bool outlier_cand = false;
-          bool rejected_cand = false;
+          bool selected_cand = 0;
+          bool outlier_cand = 0;
+          bool rejected_cand = 0;
 
           if (it >= passing_end){
-            rejected_cand = true;
+            rejected_cand = 1;
           }
           else if (it <= passing_begin){
-            selected_cand = true;
+            selected_cand = 1;
           }
           else{
-            outlier_cand = true;
+            outlier_cand = 1;
           }
 
           int hit_id = -999;
+          //Check for a reference to an uncalibrated
+          //structure
           if (it->hasUncalibratedSourceLink()){
             const Acts::SourceLink& source_link = it->getUncalibratedSourceLink();
+            //Follow the reference 
             if (const auto* index_link = source_link.getPtr<ActsExamples::IndexSourceLink>()){
+              //Update the hit id using the global index
+              //of the reference
               hit_id = index_link->index();
+              //Check that m_clusters is not a nullptr
+              //recall that m_clusters is a pointer to 
+              //the cluster memory space. Also use the
+              //fact that clusters are 1<->1 mapped with
+              //measurements according to Cluster.hpp
+              if (m_clusters!=nullptr && hit_id >= 0 && static_cast<std::size_t>(hit_id) < m_clusters->size()){
+                //A write protected view of the cluster
+                const auto& cluster = (*m_clusters)[hit_id];
+                //Grab the total cluster charge
+                double charge = cluster.sumActivations();
+                //Number of channels contributing
+                int nchannels = static_cast<int>(cluster.channels.size());
+                //Number of channels along local coordinates (l0,l1)
+                size_t sizeLoc0 = cluster.sizeLoc0;
+                size_t sizeLoc1 = cluster.sizeLoc1;
+                double globalEta = cluster.globalEta;
+                double globalPhi = cluster.globalPhi;
+                double incidentEta = cluster.etaAngle;
+                double incidentPhi = cluster.phiAngle;
+                //Push back to the struct
+                cand_props.charge_dep.push_back(charge);
+                cand_props.nchannels.push_back(nchannels);
+                cand_props.sizeLoc0.push_back(sizeLoc0);
+                cand_props.sizeLoc1.push_back(sizeLoc1);
+                cand_props.globalEta.push_back(globalEta);
+                cand_props.globalPhi.push_back(globalPhi);
+                cand_props.incidentEta.push_back(incidentEta);
+                cand_props.incidentPhi.push_back(incidentPhi);
+              }
+              else{
+                cand_props.charge_dep.push_back(0);
+                cand_props.nchannels.push_back(0);
+                cand_props.sizeLoc0.push_back(0);
+                cand_props.sizeLoc1.push_back(0);
+                cand_props.globalEta.push_back(-999);
+                cand_props.globalPhi.push_back(-999);
+                cand_props.incidentEta.push_back(-999);
+                cand_props.incidentPhi.push_back(-999);
+                if (m_clusters == nullptr){
+                  std::cout<< "CLUSTERS IS NULL" <<std::endl;
+                }
+              }
             }
 
           }
@@ -147,9 +196,21 @@ class MeasurementSelector {
     if (!passing_candidates.ok() || candidates.empty()){
       cand_props.hit_idx.push_back(-999);
       cand_props.chi2.push_back(-999);
-      cand_props.selected_cand.push_back(false);
-      cand_props.outlier_cand.push_back(false);
-      cand_props.rejected_cand.push_back(false);
+      cand_props.selected_cand.push_back(0);
+      cand_props.outlier_cand.push_back(0);
+      cand_props.rejected_cand.push_back(0);
+      cand_props.charge_dep.push_back(0);
+      cand_props.nchannels.push_back(0);
+      cand_props.sizeLoc0.push_back(0);
+      cand_props.sizeLoc1.push_back(0);
+      cand_props.globalEta.push_back(-999);
+      cand_props.globalPhi.push_back(-999);
+      cand_props.incidentEta.push_back(-999);
+      cand_props.incidentPhi.push_back(-999);
+    }
+
+    for (auto& cand_proxy : candidates){
+      m_candidate_accumulator(cand_proxy) = cand_props;
     }
 
     //Pass the candidates as normal
@@ -375,7 +436,7 @@ TrackFindingAlgorithm::TrackFindingAlgorithm(
   m_inputInitialTrackParameters.initialize(m_cfg.inputInitialTrackParameters);
   m_inputSeeds.maybeInitialize(m_cfg.inputSeeds);
   m_outputTracks.initialize(m_cfg.outputTracks);
-  //Clusters
+  //Cluster handle initialization
   m_inputClusters.initialize(m_cfg.inputClusters);
 }
 
@@ -384,6 +445,8 @@ ProcessCode TrackFindingAlgorithm::execute(const AlgorithmContext& ctx) const {
   const auto& measurements = m_inputMeasurements(ctx);
   const auto& initialParameters = m_inputInitialTrackParameters(ctx);
   const SeedContainer* seeds = nullptr;
+  //Use the handle to access the data indexed
+  //by the event context
   const auto& clusters = m_inputClusters(ctx);
 
   if (m_inputSeeds.isInitialized()) {
@@ -495,6 +558,12 @@ ProcessCode TrackFindingAlgorithm::execute(const AlgorithmContext& ctx) const {
   auto trackContainerTemp = std::make_shared<Acts::VectorTrackContainer>();
   auto trackStateContainerTemp = std::make_shared<Acts::VectorMultiTrajectory>();
 
+  //Add all canddiates to the track whiteboard
+  trackStateContainer -> addColumn<ActsExamples::candidate_properties>("allCandidates");
+  trackStateContainerTemp -> addColumn<ActsExamples::candidate_properties>("allCandidates");
+  //Post the track candidate properties to the whiteboard with a proxy name
+  Acts::ProxyAccessor<ActsExamples::candidate_properties> candidate_accumulator ("allCandidates");
+
   TrackContainer tracks(trackContainer, trackStateContainer);
   TrackContainer tracksTemp(trackContainerTemp, trackStateContainerTemp);
 
@@ -506,19 +575,12 @@ ProcessCode TrackFindingAlgorithm::execute(const AlgorithmContext& ctx) const {
   tracksTemp.addColumn<unsigned int>("trackGroup");
   Acts::ProxyAccessor<unsigned int> seedNumber("trackGroup");
 
-  //Add all canddiates to the track whiteboard
-  tracks.addColumn<ActsExamples::candidate_properties>("allCandidates");
-  tracksTemp.addColumn<ActsExamples::candidate_properties>("allCandidates");
-  //Post the track candidate properties to the whiteboard with a proxy name
-  Acts::ProxyAccessor<ActsExamples::candidate_properties> candidate_accumulator ("allCandidates");
-
-
   unsigned int nSeed = 0;
 
   // A map indicating whether a seed has been discovered already
   SeedCoverage seedCoverage;
 
-  auto addTrack = [&](const TrackProxy& track, const ActsExamples::candidate_properties& props) {
+  auto addTrack = [&](const TrackProxy& track) {
     ++m_nFoundTracks;
 
     // trim the track if requested
@@ -540,9 +602,6 @@ ProcessCode TrackFindingAlgorithm::execute(const AlgorithmContext& ctx) const {
     // make sure we copy track states!
     destProxy.copyFrom(track);
 
-    //Reference to the properties buffer and 
-    //creates a copy
-    candidate_accumulator(destProxy) = props;
   };
 
   if (seeds != nullptr && m_cfg.seedDeduplication) {
@@ -735,7 +794,7 @@ ProcessCode TrackFindingAlgorithm::execute(const AlgorithmContext& ctx) const {
                 }
               }
 
-              addTrack(trackCandidate, measSel.cand_props);
+              addTrack(trackCandidate);
 
               ++nSecond;
             }
@@ -768,7 +827,7 @@ ProcessCode TrackFindingAlgorithm::execute(const AlgorithmContext& ctx) const {
           continue;
         }
 
-        addTrack(trackCandidate, measSel.cand_props);
+        addTrack(trackCandidate);
       }
     }
   }

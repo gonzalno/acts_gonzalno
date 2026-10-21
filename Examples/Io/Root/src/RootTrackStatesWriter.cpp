@@ -103,6 +103,14 @@ RootTrackStatesWriter::RootTrackStatesWriter(
   m_outputTree->Branch("isCand_outlier", &m_all_cand_outlier);
   m_outputTree->Branch("isCand_failure", &m_all_cand_failed);
   m_outputTree->Branch("all_cand_chi2", &m_all_cand_chi2);
+  m_outputTree->Branch("all_cand_charge_dep", &m_all_cand_charge_dep);
+  m_outputTree->Branch("all_cand_nchannels", &m_all_cand_nchannels);
+  m_outputTree->Branch("all_cand_sizeLoc0", &m_all_cand_sizeLoc0);
+  m_outputTree->Branch("all_cand_sizeLoc1", &m_all_cand_sizeLoc1);
+  m_outputTree->Branch("all_cand_globalEta", &m_all_cand_globalEta);
+  m_outputTree->Branch("all_cand_globalPhi", &m_all_cand_globalPhi);
+  m_outputTree->Branch("all_cand_incidentEta", &m_all_cand_incidentEta);
+  m_outputTree->Branch("all_cand_incidentPhi", &m_all_cand_incidentPhi);
 
 
   m_outputTree->Branch("nStates", &m_nStates);
@@ -352,14 +360,6 @@ ProcessCode RootTrackStatesWriter::writeT(const AlgorithmContext& ctx,
     m_nMeasurements = track.nMeasurements();
     m_nStates = track.nTrackStates();
 
-    //Retrieve the set of candidates at 
-    //each surface in the track trajectory
-    const ActsExamples::candidate_properties& all_cands = candidate_accumulator(track);
-    m_all_cand_passing = all_cands.selected_cand;
-    m_all_cand_outlier = all_cands.outlier_cand;
-    m_all_cand_failed = all_cands.rejected_cand;
-    m_all_cand_chi2 = all_cands.chi2;
-
     // Get the majority truth particle to this track
     int truthQ = 1;
     auto match = trackParticleMatching.find(track.index());
@@ -415,6 +415,24 @@ ProcessCode RootTrackStatesWriter::writeT(const AlgorithmContext& ctx,
       particleParticle.clear();
       particleGeneration.clear();
       particleSubParticle.clear();
+ 
+      const auto& step_cands = candidate_accumulator(state);
+
+      //Custom push back to the containers
+      m_all_cand_passing.push_back(step_cands.selected_cand);
+      m_all_cand_outlier.push_back(step_cands.outlier_cand);
+      m_all_cand_failed.push_back(step_cands.rejected_cand);
+      m_all_cand_chi2.push_back(step_cands.chi2);
+      m_all_cand_charge_dep.push_back(step_cands.charge_dep);
+      m_all_cand_nchannels.push_back(step_cands.nchannels);
+      m_all_cand_sizeLoc0.push_back(step_cands.sizeLoc0);
+      m_all_cand_sizeLoc1.push_back(step_cands.sizeLoc1);
+      m_all_cand_globalEta.push_back(step_cands.globalEta);
+      m_all_cand_globalPhi.push_back(step_cands.globalPhi);
+      m_all_cand_incidentEta.push_back(step_cands.incidentEta);
+      m_all_cand_incidentPhi.push_back(step_cands.incidentPhi);
+
+      //End custom push back
 
       if (!state.hasUncalibratedSourceLink()) {
         m_t_x.push_back(nan);
@@ -777,6 +795,14 @@ ProcessCode RootTrackStatesWriter::writeT(const AlgorithmContext& ctx,
     m_all_cand_outlier.clear();
     m_all_cand_failed.clear();
     m_all_cand_chi2.clear();
+    m_all_cand_charge_dep.clear();
+    m_all_cand_nchannels.clear();
+    m_all_cand_sizeLoc0.clear();
+    m_all_cand_sizeLoc1.clear();
+    m_all_cand_globalEta.clear();
+    m_all_cand_globalPhi.clear();
+    m_all_cand_incidentEta.clear();
+    m_all_cand_incidentPhi.clear();
 
     //End of custom branches
 

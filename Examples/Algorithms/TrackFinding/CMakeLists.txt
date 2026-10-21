@@ -23,7 +23,7 @@ target_link_libraries(
     ActsExamplesTrackFinding
     PUBLIC 
     Acts::ExamplesMagneticField
-    Acts::Core
+    Acts::ExamplesFramework
     PRIVATE Acts::PluginJson
 )
 

@@ -273,10 +273,19 @@ class RootTrackStatesWriter final : public WriterT<ConstTrackContainer> {
 
   //Adding readout for the candidates at each surface with their booleans
   //indicating rejection, outlier, or passed
-  std::vector<bool>m_all_cand_passing;
-  std::vector<bool>m_all_cand_outlier;
-  std::vector<bool>m_all_cand_failed;
-  std::vector<double>m_all_cand_chi2;
+  std::vector<std::vector<int>>m_all_cand_passing;
+  std::vector<std::vector<int>>m_all_cand_outlier;
+  std::vector<std::vector<int>>m_all_cand_failed;
+  std::vector<std::vector<double>>m_all_cand_chi2;
+  std::vector<std::vector<double>>m_all_cand_charge_dep;
+  std::vector<std::vector<int>>m_all_cand_nchannels;
+  std::vector<std::vector<size_t>>m_all_cand_sizeLoc0;
+  std::vector<std::vector<size_t>>m_all_cand_sizeLoc1;
+  std::vector<std::vector<double>>m_all_cand_globalEta;
+  std::vector<std::vector<double>>m_all_cand_globalPhi;
+  std::vector<std::vector<double>>m_all_cand_incidentEta;
+  std::vector<std::vector<double>>m_all_cand_incidentPhi;
+
 };
 
 }  // namespace ActsExamples
