@@ -99,6 +99,7 @@ RootTrackStatesWriter::RootTrackStatesWriter(
 
   //Custom writeout of the candidates at each 
   //surface in the track trajectory
+  m_outputTree->Branch("all_cand_hit_idx", &m_all_cand_hit_idx);
   m_outputTree->Branch("isCand_passing", &m_all_cand_passing);
   m_outputTree->Branch("isCand_outlier", &m_all_cand_outlier);
   m_outputTree->Branch("isCand_failure", &m_all_cand_failed);
@@ -111,6 +112,10 @@ RootTrackStatesWriter::RootTrackStatesWriter(
   m_outputTree->Branch("all_cand_globalPhi", &m_all_cand_globalPhi);
   m_outputTree->Branch("all_cand_incidentEta", &m_all_cand_incidentEta);
   m_outputTree->Branch("all_cand_incidentPhi", &m_all_cand_incidentPhi);
+  m_outputTree->Branch("all_cand_Loc0", &m_all_cand_Loc0);
+  m_outputTree->Branch("all_cand_Loc1", &m_all_cand_Loc1);
+  m_outputTree->Branch("all_cand_VarLoc0", &m_all_cand_VarLoc0);
+  m_outputTree->Branch("all_cand_VarLoc1", &m_all_cand_VarLoc1);
 
 
   m_outputTree->Branch("nStates", &m_nStates);
@@ -419,6 +424,7 @@ ProcessCode RootTrackStatesWriter::writeT(const AlgorithmContext& ctx,
       const auto& step_cands = candidate_accumulator(state);
 
       //Custom push back to the containers
+      m_all_cand_hit_idx.push_back(step_cands.hit_idx);
       m_all_cand_passing.push_back(step_cands.selected_cand);
       m_all_cand_outlier.push_back(step_cands.outlier_cand);
       m_all_cand_failed.push_back(step_cands.rejected_cand);
@@ -431,6 +437,10 @@ ProcessCode RootTrackStatesWriter::writeT(const AlgorithmContext& ctx,
       m_all_cand_globalPhi.push_back(step_cands.globalPhi);
       m_all_cand_incidentEta.push_back(step_cands.incidentEta);
       m_all_cand_incidentPhi.push_back(step_cands.incidentPhi);
+      m_all_cand_Loc0.push_back(step_cands.Loc0);
+      m_all_cand_Loc1.push_back(step_cands.Loc1);
+      m_all_cand_VarLoc0.push_back(step_cands.VarLoc0);
+      m_all_cand_VarLoc1.push_back(step_cands.VarLoc1);
 
       //End custom push back
 
@@ -791,6 +801,7 @@ ProcessCode RootTrackStatesWriter::writeT(const AlgorithmContext& ctx,
     m_moduleID.clear();
 
     //Start of custom branches
+    m_all_cand_hit_idx.clear();
     m_all_cand_passing.clear();
     m_all_cand_outlier.clear();
     m_all_cand_failed.clear();
@@ -803,6 +814,10 @@ ProcessCode RootTrackStatesWriter::writeT(const AlgorithmContext& ctx,
     m_all_cand_globalPhi.clear();
     m_all_cand_incidentEta.clear();
     m_all_cand_incidentPhi.clear();
+    m_all_cand_Loc0.clear();
+    m_all_cand_Loc1.clear();
+    m_all_cand_VarLoc0.clear();
+    m_all_cand_VarLoc1.clear();
 
     //End of custom branches
 

@@ -28,6 +28,7 @@
 //Cluster container
 #include "ActsExamples/EventData/Cluster.hpp"
 
+
 #include <atomic>
 #include <cstddef>
 #include <limits>
@@ -218,12 +219,16 @@ struct candidate_properties
     std::vector<double> charge_dep;
     std::vector<double> cluster_size;
     std::vector<int> nchannels;
-    std::vector<size_t> sizeLoc0;
-    std::vector<size_t> sizeLoc1;
+    std::vector<int> sizeLoc0;
+    std::vector<int> sizeLoc1;
     std::vector<double> globalEta;
     std::vector<double> globalPhi;
     std::vector<double> incidentEta;
     std::vector<double> incidentPhi;
+    std::vector<double> Loc0;
+    std::vector<double> Loc1;
+    std::vector<double> VarLoc0;
+    std::vector<double> VarLoc1;
 
     void clear(){
       hit_idx.clear();
@@ -240,6 +245,10 @@ struct candidate_properties
       globalPhi.clear();
       incidentEta.clear();
       incidentPhi.clear();
+      Loc0.clear();
+      Loc1.clear();
+      VarLoc0.clear();
+      VarLoc1.clear();
     }
   };
 

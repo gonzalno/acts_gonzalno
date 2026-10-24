@@ -110,10 +110,24 @@ class MeasurementSelector {
         auto[passing_begin, passing_end] = passing_candidates.value();
         //Loop through ALL candidates
         for (auto it = candidates.begin(); it != candidates.end(); it++){
-          //Boolean for candidates which did or did not pass
+          //Define the set of attributes to be readout
           bool selected_cand = 0;
           bool outlier_cand = 0;
           bool rejected_cand = 0;
+          int hit_id = -999;
+          double chi2 = -999;
+          double charge = 0;
+          int nchannels = 0;
+          int sizeLoc0 = 0;
+          int sizeLoc1 = 0;
+          double globalEta = 0;
+          double globalPhi = 0;
+          double incidentEta = 0;
+          double incidentPhi = 0;
+          double loc0 = 0;
+          double loc1 = 0;
+          double varloc0 = -999;
+          double varloc1 = -999;
 
           if (it >= passing_end){
             rejected_cand = 1;
@@ -124,8 +138,6 @@ class MeasurementSelector {
           else{
             outlier_cand = 1;
           }
-
-          int hit_id = -999;
           //Check for a reference to an uncalibrated
           //structure
           if (it->hasUncalibratedSourceLink()){
@@ -134,7 +146,9 @@ class MeasurementSelector {
             if (const auto* index_link = source_link.getPtr<ActsExamples::IndexSourceLink>()){
               //Update the hit id using the global index
               //of the reference
-              hit_id = index_link->index();
+              hit_id = static_cast<int>(index_link->index());
+              //Retrieve Chi2
+              chi2 = it->chi2();
               //Check that m_clusters is not a nullptr
               //recall that m_clusters is a pointer to 
               //the cluster memory space. Also use the
@@ -144,50 +158,61 @@ class MeasurementSelector {
                 //A write protected view of the cluster
                 const auto& cluster = (*m_clusters)[hit_id];
                 //Grab the total cluster charge
-                double charge = cluster.sumActivations();
+                charge = cluster.sumActivations();
                 //Number of channels contributing
-                int nchannels = static_cast<int>(cluster.channels.size());
+                nchannels = static_cast<int>(cluster.channels.size());
                 //Number of channels along local coordinates (l0,l1)
-                size_t sizeLoc0 = cluster.sizeLoc0;
-                size_t sizeLoc1 = cluster.sizeLoc1;
-                double globalEta = cluster.globalEta;
-                double globalPhi = cluster.globalPhi;
-                double incidentEta = cluster.etaAngle;
-                double incidentPhi = cluster.phiAngle;
-                //Push back to the struct
-                cand_props.charge_dep.push_back(charge);
-                cand_props.nchannels.push_back(nchannels);
-                cand_props.sizeLoc0.push_back(sizeLoc0);
-                cand_props.sizeLoc1.push_back(sizeLoc1);
-                cand_props.globalEta.push_back(globalEta);
-                cand_props.globalPhi.push_back(globalPhi);
-                cand_props.incidentEta.push_back(incidentEta);
-                cand_props.incidentPhi.push_back(incidentPhi);
+                sizeLoc0 = static_cast<int>(cluster.sizeLoc0);
+                sizeLoc1 = static_cast<int>(cluster.sizeLoc1);
+                globalEta = cluster.globalEta;
+                globalPhi = cluster.globalPhi;
+                incidentEta = cluster.etaAngle;
+                incidentPhi = cluster.phiAngle;
               }
               else{
-                cand_props.charge_dep.push_back(0);
-                cand_props.nchannels.push_back(0);
-                cand_props.sizeLoc0.push_back(0);
-                cand_props.sizeLoc1.push_back(0);
-                cand_props.globalEta.push_back(-999);
-                cand_props.globalPhi.push_back(-999);
-                cand_props.incidentEta.push_back(-999);
-                cand_props.incidentPhi.push_back(-999);
                 if (m_clusters == nullptr){
                   std::cout<< "CLUSTERS IS NULL" <<std::endl;
                 }
               }
+            if (m_measurements!=nullptr && hit_id >= 0 && static_cast<std::size_t>(hit_id) < m_measurements->size()){
+              const auto& measurement = (*m_measurements).at(static_cast<std::size_t>(hit_id));
+              //Measurements contain parameters and covariances
+              //parameters = local coordinates indexed with [n]
+              //covariances = matrix objects indexed with (n,m)
+              const auto locs = measurement.parameters();
+              const auto cov = measurement.covariance();
+              loc0 = locs[0];
+              varloc0 = cov(0,0);
+              if (locs.size() > 1){
+                loc1 = locs[1];
+                varloc1 = cov(1,1);
+              }
             }
-
+            else{
+              if (m_measurements==nullptr){
+                std::cout << "MEASUREMENTS IS NULL" << std::endl;
+              }
+            }
+            }
           }
-          //Retrieve Chi2
-          double chi2 = it->chi2();
-          //Append the hit bools/features to a container
+          //Pushback to the containers
           cand_props.hit_idx.push_back(hit_id);
           cand_props.chi2.push_back(chi2);
           cand_props.selected_cand.push_back(selected_cand);
           cand_props.outlier_cand.push_back(outlier_cand);
           cand_props.rejected_cand.push_back(rejected_cand);
+          cand_props.charge_dep.push_back(charge);
+          cand_props.nchannels.push_back(nchannels);
+          cand_props.sizeLoc0.push_back(sizeLoc0);
+          cand_props.sizeLoc1.push_back(sizeLoc1);
+          cand_props.globalEta.push_back(globalEta);
+          cand_props.globalPhi.push_back(globalPhi);
+          cand_props.incidentEta.push_back(incidentEta);
+          cand_props.incidentPhi.push_back(incidentPhi);
+          cand_props.Loc0.push_back(loc0);
+          cand_props.VarLoc0.push_back(varloc0);
+          cand_props.Loc1.push_back(loc1);
+          cand_props.VarLoc1.push_back(varloc1);
         }
     }
 
@@ -207,6 +232,10 @@ class MeasurementSelector {
       cand_props.globalPhi.push_back(-999);
       cand_props.incidentEta.push_back(-999);
       cand_props.incidentPhi.push_back(-999);
+      cand_props.Loc0.push_back(0);
+      cand_props.VarLoc0.push_back(-999);
+      cand_props.Loc1.push_back(0);
+      cand_props.VarLoc1.push_back(-999);
     }
 
     for (auto& cand_proxy : candidates){
