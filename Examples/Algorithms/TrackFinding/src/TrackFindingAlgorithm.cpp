@@ -132,12 +132,14 @@ class MeasurementSelector {
           if (it >= passing_end){
             rejected_cand = 1;
           }
-          else if (it <= passing_begin){
-            selected_cand = 1;
-          }
-          else{
-            outlier_cand = 1;
-          }
+          else if (it >= passing_begin && it < passing_end){
+		  if (isOutlier){
+			  outlier_cand = 1;
+		  }
+		  else{
+			  selected_cand = 1;
+		}
+	  }
           //Check for a reference to an uncalibrated
           //structure
           if (it->hasUncalibratedSourceLink()){
