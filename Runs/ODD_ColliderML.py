@@ -55,14 +55,14 @@ events = ["0", "1", "2", "4", "5", "6", "7", "10", "11"]
 glob_path = "/global/cfs/cdirs/m4958/data/ColliderML/simulation/hard_scatter/ttbar/v1/runs/"
 
 #Lowest acceptable track pT in GeV
-PT_CUT = 1
+PT_CUT = 0.5
 
 for event in events:
     #Input path
     INPUT_PATH = glob_path + f"{event}" + "/edm4hep.root"
     print("Processing event ", event)
     #Output path
-    OUT_PATH = f"../ColliderML_processed/{event}"
+    OUT_PATH = f"../ColliderML_processed/ttbar_hard_scatter_500MeVCut/{event}"
     os.makedirs(OUT_PATH, exist_ok=True)
     #use graph based track seeding
     USE_GBTS = False
