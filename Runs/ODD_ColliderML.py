@@ -52,17 +52,20 @@ B_Z = acts.ConstantBField(acts.Vector3(0.0, 0.0, 3.0 * u.T))
 
 events = ["0", "1", "2", "4", "5", "6", "7", "10", "11"]
 
-glob_path = "/global/cfs/cdirs/m4958/data/ColliderML/simulation/hard_scatter/ttbar/v1/runs/"
+#Event list for quick debugging runs
+#events = ["1"]
+
+glob_path = "/global/cfs/cdirs/m4958/data/ColliderML/simulation/pileup-200-new/gg2ttbar/v1/runs/"
 
 #Lowest acceptable track pT in GeV
-PT_CUT = 0.5
+PT_CUT = 1.0
 
 for event in events:
     #Input path
     INPUT_PATH = glob_path + f"{event}" + "/edm4hep.root"
     print("Processing event ", event)
     #Output path
-    OUT_PATH = f"../ColliderML_processed/ttbar_hard_scatter_500MeVCut/{event}"
+    OUT_PATH = f"../ColliderML_processed/gg2ttbar_PU200_with_truth_for_CLR/{event}"
     os.makedirs(OUT_PATH, exist_ok=True)
     #use graph based track seeding
     USE_GBTS = False
@@ -91,7 +94,7 @@ for event in events:
 
     #Build the sequencer used to prcoess the events
     seq = acts.examples.Sequencer( events = NEVENTS, numThreads = 1,
-                                    outputDir = OUT_PATH)
+                                    outputDir = OUT_PATH, failOnUnmaskedFpe=False)
 
     for decorator in decorators:
         seq.addContextDecorator(decorator)

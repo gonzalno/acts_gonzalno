@@ -291,6 +291,9 @@ class RootTrackStatesWriter final : public WriterT<ConstTrackContainer> {
   std::vector<std::vector<double>>m_all_cand_VarLoc0;
   std::vector<std::vector<double>>m_all_cand_VarLoc1;
 
+  //Adding containers for some truth features 
+  std::vector<double>m_Edep_truth_simHit;
+  std::vector<int>m_truth_to_reco_hitIdx;
 };
 
 }  // namespace ActsExamples

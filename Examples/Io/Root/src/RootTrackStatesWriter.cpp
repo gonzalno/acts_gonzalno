@@ -117,6 +117,12 @@ RootTrackStatesWriter::RootTrackStatesWriter(
   m_outputTree->Branch("all_cand_VarLoc0", &m_all_cand_VarLoc0);
   m_outputTree->Branch("all_cand_VarLoc1", &m_all_cand_VarLoc1);
 
+  //Truth props
+  m_outputTree->Branch("truthSimHitEdep", &m_Edep_truth_simHit);
+  m_outputTree->Branch("truthToRecoIdx", &m_truth_to_reco_hitIdx);
+
+  //End of custom writeout
+
 
   m_outputTree->Branch("nStates", &m_nStates);
   m_outputTree->Branch("nMeasurements", &m_nMeasurements);
@@ -406,6 +412,9 @@ ProcessCode RootTrackStatesWriter::writeT(const AlgorithmContext& ctx,
 
       m_stateType.push_back(Acts::toUnderlying(getStateType(state)));
 
+      //Grab the state type to know when to fill candidates and simHits
+      const int state_type = Acts::toUnderlying(getStateType(state));
+
       // get the path length
       m_pathLength.push_back(state.pathLength());
 
@@ -423,24 +432,27 @@ ProcessCode RootTrackStatesWriter::writeT(const AlgorithmContext& ctx,
  
       const auto& step_cands = candidate_accumulator(state);
 
-      //Custom push back to the containers
-      m_all_cand_hit_idx.push_back(step_cands.hit_idx);
-      m_all_cand_passing.push_back(step_cands.selected_cand);
-      m_all_cand_outlier.push_back(step_cands.outlier_cand);
-      m_all_cand_failed.push_back(step_cands.rejected_cand);
-      m_all_cand_chi2.push_back(step_cands.chi2);
-      m_all_cand_charge_dep.push_back(step_cands.charge_dep);
-      m_all_cand_nchannels.push_back(step_cands.nchannels);
-      m_all_cand_sizeLoc0.push_back(step_cands.sizeLoc0);
-      m_all_cand_sizeLoc1.push_back(step_cands.sizeLoc1);
-      m_all_cand_globalEta.push_back(step_cands.globalEta);
-      m_all_cand_globalPhi.push_back(step_cands.globalPhi);
-      m_all_cand_incidentEta.push_back(step_cands.incidentEta);
-      m_all_cand_incidentPhi.push_back(step_cands.incidentPhi);
-      m_all_cand_Loc0.push_back(step_cands.Loc0);
-      m_all_cand_Loc1.push_back(step_cands.Loc1);
-      m_all_cand_VarLoc0.push_back(step_cands.VarLoc0);
-      m_all_cand_VarLoc1.push_back(step_cands.VarLoc1);
+      //Check if the state is a measurement state
+      if (state_type==0){
+	      //Custom push back to the containers
+	      m_all_cand_hit_idx.push_back(step_cands.hit_idx);
+	      m_all_cand_passing.push_back(step_cands.selected_cand);
+	      m_all_cand_outlier.push_back(step_cands.outlier_cand);
+	      m_all_cand_failed.push_back(step_cands.rejected_cand);
+	      m_all_cand_chi2.push_back(step_cands.chi2);
+	      m_all_cand_charge_dep.push_back(step_cands.charge_dep);
+	      m_all_cand_nchannels.push_back(step_cands.nchannels);
+	      m_all_cand_sizeLoc0.push_back(step_cands.sizeLoc0);
+	      m_all_cand_sizeLoc1.push_back(step_cands.sizeLoc1);
+	      m_all_cand_globalEta.push_back(step_cands.globalEta);
+	      m_all_cand_globalPhi.push_back(step_cands.globalPhi);
+	      m_all_cand_incidentEta.push_back(step_cands.incidentEta);
+	      m_all_cand_incidentPhi.push_back(step_cands.incidentPhi);
+	      m_all_cand_Loc0.push_back(step_cands.Loc0);
+	      m_all_cand_Loc1.push_back(step_cands.Loc1);
+	      m_all_cand_VarLoc0.push_back(step_cands.VarLoc0);
+	      m_all_cand_VarLoc1.push_back(step_cands.VarLoc1);
+	}
 
       //End custom push back
 
@@ -482,6 +494,7 @@ ProcessCode RootTrackStatesWriter::writeT(const AlgorithmContext& ctx,
         // momentum averaging makes even less sense than averaging position and
         // direction. use the first momentum or set q/p to zero
         if (!indices.empty()) {
+	   //Only executed when StateType is zero
           // we assume that the indices are within valid ranges so we do not
           // need to check their validity again.
           const auto simHitIdx0 = indices.begin()->second;
@@ -489,6 +502,12 @@ ProcessCode RootTrackStatesWriter::writeT(const AlgorithmContext& ctx,
           const double p =
               simHit0.momentum4Before().template segment<3>(Acts::eMom0).norm();
           truthParams[Acts::eBoundQOverP] = truthQ / p;
+
+	  //Custom addition to read out the truth deposited energy
+	  const double Edep = simHit0.depositedEnergy()*1e6;
+	  m_Edep_truth_simHit.push_back(Edep);
+	  //Add the hitIdx to the output
+	  m_truth_to_reco_hitIdx.push_back(hitIdx);
 
           // extract particle ids contributed to this track state
           for (auto const& [key, simHitIdx] : indices) {
@@ -818,6 +837,9 @@ ProcessCode RootTrackStatesWriter::writeT(const AlgorithmContext& ctx,
     m_all_cand_Loc1.clear();
     m_all_cand_VarLoc0.clear();
     m_all_cand_VarLoc1.clear();
+
+    m_Edep_truth_simHit.clear();
+    m_truth_to_reco_hitIdx.clear();
 
     //End of custom branches
 
